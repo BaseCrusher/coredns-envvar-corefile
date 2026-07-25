@@ -134,6 +134,16 @@ func sortedKeys[V any](m map[string]V) []string {
 	return ks
 }
 
+// main writes the Corefile to the path given as the first argument, or to
+// stdout when none is given (distroless images have no shell to redirect with).
 func main() {
-	fmt.Print(corefile(groups(os.Environ())))
+	out := corefile(groups(os.Environ()))
+	if len(os.Args) < 2 {
+		fmt.Print(out)
+		return
+	}
+	if err := os.WriteFile(os.Args[1], []byte(out), 0o644); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }
