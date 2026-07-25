@@ -67,11 +67,14 @@ Multiple groups produce multiple server blocks.
 
 ```sh
 go build -o corefile-gen .
-./corefile-gen > Corefile
+./corefile-gen /etc/coredns/Corefile   # write to a file
+./corefile-gen                         # or print to stdout
 ```
 
-Or as a container entrypoint step:
+Writing the file directly means no shell redirection is needed, so it works in
+a distroless image — e.g. as an init container that writes the Corefile into a
+volume shared with CoreDNS:
 
-```sh
-corefile-gen > /etc/coredns/Corefile && exec coredns -conf /etc/coredns/Corefile
+```yaml
+command: ["/corefile-gen", "/etc/coredns/Corefile"]
 ```
