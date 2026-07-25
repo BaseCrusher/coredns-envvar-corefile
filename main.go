@@ -41,9 +41,11 @@ type block struct {
 	root       *node
 }
 
-// groups parses COREDNS_ env vars into group name -> block.
-func groups(environ []string) map[string]*block {
+// groups parses COREDNS_ env vars into group name -> block, plus the sorted
+// list of keys rejected by splitPath.
+func groups(environ []string) (map[string]*block, []string) {
 	out := map[string]*block{}
+	var bad []string
 	get := func(g string) *block {
 		if out[g] == nil {
 			out[g] = &block{root: newNode()}
@@ -62,9 +64,12 @@ func groups(environ []string) map[string]*block {
 			continue
 		}
 		if cfg, ok := strings.CutPrefix(rest, "_"); ok { // '__' -> inside block
-			if path := splitPath(cfg); len(path) > 0 {
-				get(g).root.set(path, v)
+			path, ok := splitPath(cfg)
+			if !ok {
+				bad = append(bad, prefix+k)
+				continue
 			}
+			get(g).root.set(path, v)
 			continue
 		}
 		switch rest { // single '_' -> header field
@@ -74,18 +79,22 @@ func groups(environ []string) map[string]*block {
 			get(g).port = v
 		}
 	}
-	return out
+	sort.Strings(bad)
+	return out, bad
 }
 
-// splitPath turns "ACME__EMAIL" into ["ACME","EMAIL"], dropping empty segments.
-func splitPath(s string) []string {
-	var out []string
-	for _, seg := range strings.Split(s, "__") {
-		if seg != "" {
-			out = append(out, seg)
+// splitPath turns "ACME__EMAIL" into ["ACME","EMAIL"]. An empty segment means
+// three or more consecutive '_' (COREDNS_Z____a), which used to be dropped: the
+// nameless parent vanished and its child was rendered flat, yielding a Corefile
+// CoreDNS rejects with an unrelated-looking parse error. Report it instead.
+func splitPath(s string) ([]string, bool) {
+	out := strings.Split(s, "__")
+	for _, seg := range out {
+		if seg == "" {
+			return nil, false
 		}
 	}
-	return out
+	return out, true
 }
 
 // corefile renders groups into a Corefile. ZONE is required; PORT defaults to 53.
@@ -137,7 +146,12 @@ func sortedKeys[V any](m map[string]V) []string {
 // main writes the Corefile to the path given as the first argument, or to
 // stdout when none is given (distroless images have no shell to redirect with).
 func main() {
-	out := corefile(groups(os.Environ()))
+	gs, bad := groups(os.Environ())
+	if len(bad) > 0 {
+		fmt.Fprintf(os.Stderr, "empty directive name (three or more consecutive '_') in: %s\n", strings.Join(bad, ", "))
+		os.Exit(1)
+	}
+	out := corefile(gs)
 	if len(os.Args) < 2 {
 		fmt.Print(out)
 		return
