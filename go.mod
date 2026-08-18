@@ -1,3 +1,3 @@
 module github.com/mruzinski/coredns-envvar-corefile
 
-go 1.26.5
+go 1.26.6
