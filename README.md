@@ -37,6 +37,46 @@ becomes one server block. Group names may not contain `_`.
 - A group without a `ZONE` is skipped. Blocks and directives are emitted in
   sorted order for deterministic output.
 
+### Repeating a directive
+
+Each directive name must be unique, so to emit the same directive more than once
+under one parent, add a **trailing `_<digits>`** index. It (and its `_`) is
+dropped before rendering, so `file_1` and `file_2` both render `file`. Names are
+string-sorted, so pad the index (`_01`…`_12`) if you need more than 9 in order.
+
+A **trailing `_` after the digits** escapes them into the name instead — `ip6_2_`
+renders `ip6_2`, not `ip6` repeated.
+
+### Writing `@`
+
+Env-var names can't contain `@`, so **`_AT_`** renders as `@`. It is replaced
+*before* the `__` split, so it composes with everything above: `_AT_` on its own
+is `@`, `_AT__1` / `_AT__2` are `@` repeated (the token plus a `_1` index), and
+`_AT___child` nests (`@ { child }`). That's enough to express a zone-record block:
+
+```sh
+export COREDNS_PROD_ZONE=example.com
+export COREDNS_PROD__records___AT__1='60 IN SOA ns1.example.com. admin.example.com. 2025073111 3600 300 2419200 300'
+export COREDNS_PROD__records___AT__2='60 IN NS ns1.example.com.'
+export COREDNS_PROD__records___AT__3='60 IN A 192.0.2.1'
+export COREDNS_PROD__records___AT__4='60 IN A 192.0.2.2'
+export COREDNS_PROD__records___AT__5='60 IN A 192.0.2.3'
+```
+
+→
+
+```
+example.com:53 {
+    records {
+        @ 60 IN SOA ns1.example.com. admin.example.com. 2025073111 3600 300 2419200 300
+        @ 60 IN NS ns1.example.com.
+        @ 60 IN A 192.0.2.1
+        @ 60 IN A 192.0.2.2
+        @ 60 IN A 192.0.2.3
+    }
+}
+```
+
 ## Example
 
 ```sh

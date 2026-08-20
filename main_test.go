@@ -130,6 +130,76 @@ func TestEmptySegmentRejected(t *testing.T) {
 	}
 }
 
+func TestAtTokenAndRepeats(t *testing.T) {
+	env := []string{
+		"COREDNS_PROD_ZONE=example.com",
+		"COREDNS_PROD__records___AT__1=60 IN SOA ns1.example.com. admin.example.com. 2025073111 3600 300 2419200 300",
+		"COREDNS_PROD__records___AT__2=60 IN NS ns1.example.com.",
+		"COREDNS_PROD__records___AT__3=60 IN A 192.0.2.1",
+		"COREDNS_PROD__records___AT__4=60 IN A 192.0.2.2",
+		"COREDNS_PROD__records___AT__5=60 IN A 192.0.2.3",
+	}
+	got := render(t, env)
+	want := "example.com:53 {\n" +
+		"    records {\n" +
+		"        @ 60 IN SOA ns1.example.com. admin.example.com. 2025073111 3600 300 2419200 300\n" +
+		"        @ 60 IN NS ns1.example.com.\n" +
+		"        @ 60 IN A 192.0.2.1\n" +
+		"        @ 60 IN A 192.0.2.2\n" +
+		"        @ 60 IN A 192.0.2.3\n" +
+		"    }\n" +
+		"}\n\n"
+	if got != want {
+		t.Fatalf("got:\n%q\nwant:\n%q", got, want)
+	}
+}
+
+func TestAtNesting(t *testing.T) {
+	env := []string{
+		"COREDNS_Z_ZONE=z.example.org",
+		"COREDNS_Z___AT___child=v",
+	}
+	got := render(t, env)
+	want := "z.example.org:53 {\n" +
+		"    @ {\n" +
+		"        child v\n" +
+		"    }\n" +
+		"}\n\n"
+	if got != want {
+		t.Fatalf("got:\n%q\nwant:\n%q", got, want)
+	}
+}
+
+func TestRepeatDirective(t *testing.T) {
+	env := []string{
+		"COREDNS_Z_ZONE=z.example.org",
+		"COREDNS_Z__file_1=a.db",
+		"COREDNS_Z__file_2=b.db",
+	}
+	got := render(t, env)
+	want := "z.example.org:53 {\n" +
+		"    file a.db\n" +
+		"    file b.db\n" +
+		"}\n\n"
+	if got != want {
+		t.Fatalf("got:\n%q\nwant:\n%q", got, want)
+	}
+}
+
+func TestEscapedTrailingNumber(t *testing.T) {
+	env := []string{
+		"COREDNS_Z_ZONE=z.example.org",
+		"COREDNS_Z__ip6_2_=fd00::1",
+	}
+	got := render(t, env)
+	want := "z.example.org:53 {\n" +
+		"    ip6_2 fd00::1\n" +
+		"}\n\n"
+	if got != want {
+		t.Fatalf("got:\n%q\nwant:\n%q", got, want)
+	}
+}
+
 // Single '_' is allowed in directive names; only '__' is reserved for nesting.
 func TestUnderscoreInDirective(t *testing.T) {
 	env := []string{

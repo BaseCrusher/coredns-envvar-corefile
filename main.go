@@ -64,6 +64,7 @@ func groups(environ []string) (map[string]*block, []string) {
 			continue
 		}
 		if cfg, ok := strings.CutPrefix(rest, "_"); ok { // '__' -> inside block
+			cfg = strings.ReplaceAll(cfg, "_AT_", "@")
 			path, ok := splitPath(cfg)
 			if !ok {
 				bad = append(bad, prefix+k)
@@ -116,11 +117,33 @@ func corefile(gs map[string]*block) string {
 	return b.String()
 }
 
+func displayName(k string) string {
+	if n := len(k); n >= 2 && k[n-1] == '_' && k[n-2] >= '0' && k[n-2] <= '9' {
+		return k[:n-1]
+	}
+	base, indexed := trimIndex(k)
+	if indexed {
+		return strings.TrimSuffix(base, "_")
+	}
+	return base
+}
+
+func trimIndex(k string) (string, bool) {
+	i := len(k)
+	for i > 0 && k[i-1] >= '0' && k[i-1] <= '9' {
+		i--
+	}
+	if i > 0 && i < len(k) && k[i-1] == '_' {
+		return k[:i], true
+	}
+	return k, false
+}
+
 // renderChildren writes n's directives, recursing into nested blocks.
 func renderChildren(b *strings.Builder, n *node, indent string) {
 	for _, k := range sortedKeys(n.children) {
 		child := n.children[k]
-		line := k // directive name is the env segment, case preserved
+		line := displayName(k) // directive name is the env segment, case preserved
 		if child.value != "" {
 			line += " " + child.value
 		}
