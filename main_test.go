@@ -186,6 +186,24 @@ func TestRepeatDirective(t *testing.T) {
 	}
 }
 
+func TestMultiple(t *testing.T) {
+	env := []string{
+		"COREDNS_Z_ZONE=z.example.org",
+		"COREDNS_Z__record__A_MULTIPLE=1.2.3.4, 5.6.7.8,9.9.9.9",
+	}
+	got := render(t, env)
+	want := "z.example.org:53 {\n" +
+		"    record {\n" +
+		"        A 1.2.3.4\n" +
+		"        A 5.6.7.8\n" +
+		"        A 9.9.9.9\n" +
+		"    }\n" +
+		"}\n\n"
+	if got != want {
+		t.Fatalf("got:\n%q\nwant:\n%q", got, want)
+	}
+}
+
 func TestEscapedTrailingNumber(t *testing.T) {
 	env := []string{
 		"COREDNS_Z_ZONE=z.example.org",

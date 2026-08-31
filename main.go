@@ -143,7 +143,15 @@ func trimIndex(k string) (string, bool) {
 func renderChildren(b *strings.Builder, n *node, indent string) {
 	for _, k := range sortedKeys(n.children) {
 		child := n.children[k]
-		line := displayName(k) // directive name is the env segment, case preserved
+		name := displayName(k) // directive name is the env segment, case preserved
+		// _MULTIPLE on a leaf: split value by comma, one line per value (e.g. many A records).
+		if base, ok := strings.CutSuffix(name, "_MULTIPLE"); ok && len(child.children) == 0 {
+			for _, v := range strings.Split(child.value, ",") {
+				fmt.Fprintf(b, "%s%s %s\n", indent, base, strings.TrimSpace(v))
+			}
+			continue
+		}
+		line := name
 		if child.value != "" {
 			line += " " + child.value
 		}
