@@ -47,6 +47,28 @@ string-sorted, so pad the index (`_01`…`_12`) if you need more than 9 in order
 A **trailing `_` after the digits** escapes them into the name instead — `ip6_2_`
 renders `ip6_2`, not `ip6` repeated.
 
+### Repeating a directive from one value (`_MULTIPLE`)
+
+For a leaf directive, a **`_MULTIPLE`** suffix on its name splits the value on
+commas and emits one line per value — handy for a list of records:
+
+```sh
+export COREDNS_Z_ZONE=z.example.org
+export COREDNS_Z__record__A_MULTIPLE='1.2.3.4, 5.6.7.8, 9.9.9.9'
+```
+
+→
+
+```
+z.example.org:53 {
+    record {
+        A 1.2.3.4
+        A 5.6.7.8
+        A 9.9.9.9
+    }
+}
+```
+
 ### Writing `@`
 
 Env-var names can't contain `@`, so **`_AT_`** renders as `@`. It is replaced
